@@ -1,0 +1,31 @@
+###  vars file for ansible-apache
+
+# setting name for apache2.4 local package path
+VAR_Apache24_WIN_localpkg_src: /tmp
+
+# setting name for apache2.4 remote package path
+VAR_Apache24_WIN_localpkg_dst: 'C:\temp'
+
+# install packages name
+VAR_Apache24_WIN_localpkg_VC_file:
+VAR_Apache24_WIN_localpkg_Apache_file:
+
+# install packages path
+VAR_Apache24_WIN_path: 'C:\Apache24'
+
+# setting VC++ RunTime install
+VAR_Apache24_WIN_VC_INSTALL: on
+
+# setting silent intall for apache2.4
+VAR_Apache24_WIN_ServiceName: 'Apache2.4'
+
+# Upload file to remote server
+VAR_Apache24_WIN_localpkg_upload: on
+
+## local vars
+
+# VC++ runtime ribrary 
+apache24_WIN_VC_RunTime_DLL: 'c:\windows\system32\vcruntime140.dll'
+
+# OS and version
+apache24_WIN_OS_Version: 'Microsoft Windows Server 2016'

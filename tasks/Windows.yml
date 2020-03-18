@@ -1,0 +1,168 @@
+---
+
+# 管理対象マシンにApache2.4をインストール
+
+###############################################################################
+# 一時保管領域の作成
+###############################################################################
+
+## インストール用の一時保管領域の確認
+  - name: check upload directory
+    win_stat: path="{{ VAR_Apache24_WIN_localpkg_dst }}"
+    register: path_uploaddir_info
+
+## インストール用の一時保管領域が存在しなければ、作成
+  - name: create upload directory
+    win_file: path="{{ VAR_Apache24_WIN_localpkg_dst }}" state=directory
+    when: not path_uploaddir_info.stat.exists
+
+###############################################################################
+# VC++ Redistributable サイレントインストール
+###############################################################################
+
+### ブロック VC++ Redistributable サイレントインストール
+
+  - block:
+
+### ブロック VAR_Apache24_WIN_VC_INSTALL = on
+
+## VC++ Redistributable サイレントインストールファイル名の入力値確認
+
+## VAR_Apache24_WIN_localpkg_VC_fileが空か確認
+    - name: check VAR_Apache24_WIN_localpkg_VC_file
+      fail: msg="VAR_Apache24_WIN_localpkg_VC_file parameter not set."
+      when:
+        VAR_Apache24_WIN_localpkg_VC_file is defined and VAR_Apache24_WIN_localpkg_VC_file == None
+
+## VC++ Redistributable サイレントインストールファイルの転送
+
+    - name: upload VC++ Redistributable binary
+      win_copy:
+        src: "{{ VAR_Apache24_WIN_localpkg_src }}/{{ VAR_Apache24_WIN_localpkg_VC_file }}"
+        dest: "{{ VAR_Apache24_WIN_localpkg_dst }}\\"
+      when: 
+        - VAR_Apache24_WIN_localpkg_upload in [True,False]
+        - VAR_Apache24_WIN_localpkg_upload == True
+  
+## VC++ Redistributable サイレントインストール
+
+    - name: install VC++ Redistributable 
+      raw: '& "{{ VAR_Apache24_WIN_localpkg_dst }}\{{ VAR_Apache24_WIN_localpkg_VC_file }}" /install /quiet'
+
+## Java サイレントインストールファイルの削除
+
+    - name: delete VC++ Redistributable binary
+      win_file: 
+        path: "{{ VAR_Apache24_WIN_localpkg_dst }}\\{{ VAR_Apache24_WIN_localpkg_VC_file }}"
+        state: absent
+      when: 
+        - VAR_Apache24_WIN_localpkg_upload in [True,False]
+        - VAR_Apache24_WIN_localpkg_upload == True
+
+    when: 
+      - VAR_Apache24_WIN_VC_INSTALL == True
+
+## VC++ Redistributable インストールファイルの確認
+
+  - block:
+
+    - name: check vcruntime library
+      win_stat: path="{{ apache24_WIN_VC_RunTime_DLL }}"
+      register: apache24_WIN_vcruntime
+
+    - name: print warning message
+      debug: msg="[warning] {{ apache24_WIN_VC_RunTime_DLL }} is missing."
+      when: not apache24_WIN_vcruntime.stat.exists
+
+    when: 
+      - VAR_Apache24_WIN_VC_INSTALL == False
+
+###############################################################################
+# Apache2.4 サイレントインストール
+###############################################################################
+
+## Apache2.4がインストール済みかチェック
+
+  - name: check Apache2.4 is installed
+    win_stat: path={{ VAR_Apache24_WIN_path }}
+    register: apache24_WIN_path
+
+  - block:
+
+## Apache2.4 インストールファイル名の入力値確認
+
+## VAR_Apache24_WIN_localpkg_Apache_fileが空か確認
+    - name: check VAR_Apache24_WIN_localpkg_Apache_file
+      fail: msg="VAR_Apache24_WIN_localpkg_Apache_file parameter not set."
+      when:
+        VAR_Apache24_WIN_localpkg_Apache_file is defined and VAR_Apache24_WIN_localpkg_Apache_file == None
+
+## Apache2.4 インストールファイルの転送
+    - name: upload Apache2.4 binary
+      win_copy:
+        src: "{{ VAR_Apache24_WIN_localpkg_src }}/{{ VAR_Apache24_WIN_localpkg_Apache_file }}"
+        dest: "{{ VAR_Apache24_WIN_localpkg_dst }}\\"
+      when: 
+        - VAR_Apache24_WIN_localpkg_upload in [True,False]
+        - VAR_Apache24_WIN_localpkg_upload == True
+
+## Apache2.4 インストールファイルの解凍
+    - name: extract Apache2.4 binary
+      win_unzip:
+        src: "{{ VAR_Apache24_WIN_localpkg_dst }}\\{{ VAR_Apache24_WIN_localpkg_Apache_file }}"
+        dest: "{{ VAR_Apache24_WIN_localpkg_dst }}\\AutoDeploy_Apache24"
+
+## Apache2.4 ディレクトリを「VAR_Apache24_WIN_path」として移動
+    - name: change arrangement of Apache2.4 direcotry
+      raw: 'Move-Item "{{ VAR_Apache24_WIN_localpkg_dst }}\AutoDeploy_Apache24\Apache24" "{{ VAR_Apache24_WIN_path }}"'
+
+    - block:
+
+## Apache2.4 インストールファイルの削除
+      - name: Remove Apache2.4 binary
+        win_file: 
+          path: "{{ VAR_Apache24_WIN_localpkg_dst }}\\{{ VAR_Apache24_WIN_localpkg_Apache_file }}"
+          state: absent
+        when: 
+          - VAR_Apache24_WIN_localpkg_upload in [True,False]
+          - VAR_Apache24_WIN_localpkg_upload == True
+    
+## Apache2.4 解凍ディレクトリの削除
+      - name: Remove extract directory
+        win_file: 
+          path: "{{ VAR_Apache24_WIN_localpkg_dst }}\\AutoDeploy_Apache24"
+          state: absent
+
+    when: not apache24_WIN_path.stat.exists
+
+###############################################################################
+# Apache2.4 サービス登録
+###############################################################################
+## Apache サービスが登録済みかチェック
+
+  - name: check Apache Service is registered
+    win_service:
+      name: "{{ VAR_Apache24_WIN_ServiceName }}"
+    failed_when: false
+    register: apache24_WIN_service_info
+
+## Apache サービスの登録
+
+  - block:
+
+    - name: check vcruntime library
+      win_stat: path="{{ apache24_WIN_VC_RunTime_DLL }}"
+      register: apache24_WIN_vcruntime
+
+    - name: print warning message
+      debug: msg="[warning] {{ apache24_WIN_VC_RunTime_DLL }} is missing."
+      when: not apache24_WIN_vcruntime.stat.exists
+
+    - name: register Apache Service
+      raw: '& "{{ VAR_Apache24_WIN_path }}\bin\httpd.exe" -k install -n {{ VAR_Apache24_WIN_ServiceName }}'
+      register: apache24_WIN_service_result
+      failed_when:
+        - "'service is successfully installed.' not in apache24_WIN_service_result.stderr"
+
+    when: apache24_WIN_service_info.name is not defined
+
